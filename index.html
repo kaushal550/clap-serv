@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clap-Serv - Community Services Marketplace</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        }
+        .logo-container {
+            width: 50px;
+            height: 50px;
+            background: url('logo.png') center/contain no-repeat;
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+        }
+        .service-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .service-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .star-rating {
+            color: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Notification System
+        const NotificationBadge = ({ count }) => {
+            if (count === 0) return null;
+            return (
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {count > 9 ? '9+' : count}
+                </span>
+            );
+        };
+
+        // Sample data structure
+        const INITIAL_SERVICE_CATEGORIES = [
+            { id: 1, name: 'Plumbing', distance: 2, icon: '🔧', description: 'Water pipe repairs, installations' },
+            { id: 2, name: 'Electrician', distance: 2, icon: '⚡', description: 'Electrical repairs and installations' },
+            { id: 3, name: 'Cleaning', distance: 2, icon: '🧹', description: 'Home and office cleaning services' },
+            { id: 4, name: 'Pest Control', distance: 2, icon: '🐛', description: 'Pest removal and prevention' },
+            { id: 5, name: 'Car Repair', distance: 30, icon: '🚗', description: 'Auto repair and maintenance' },
+            { id: 6, name: 'Masonry', distance: 30, icon: '🏗️', description: 'Brick and stone work' },
+            { id: 7, name: 'Carpentry', distance: 30, icon: '🪚', description: 'Wood work and furniture' },
+            { id: 8, name: 'House Building', distance: 30, icon: '🏠', description: 'Construction services' },
+            { id: 9, name: 'Interior Design', distance: 30, icon: '🎨', description: 'Home interior designing' },
+            { id: 10, name: 'Landscaping', distance: 30, icon: '🌳', description: 'Garden and outdoor design' },
+            { id: 11, name: 'Web Development', distance: 'online', icon: '💻', description: 'Website creation and maintenance' },
+            { id: 12, name: 'Graphic Design', distance: 'online', icon: '🎨', description: 'Logo, branding, visual design' },
+            { id: 13, name: 'Financial Services', distance: 'online', icon: '💰', description: 'Accounting and financial planning' },
+            { id: 14, name: 'Digital Marketing', distance: 'online', icon: '📱', description: 'SEO, social media, advertising' },
+            { id: 15, name: 'Content Writing', distance: 'online', icon: '✍️', description: 'Articles, blogs, copywriting' },
+        ];
+
+        const INITIAL_USERS = [
+            {
+                id: 1,
+                name: 'John Doe',
+                email: 'john@example.com',
+                password: 'user123',
+                // Both buyer and provider capabilities
+                activeRole: 'buyer', // Current active role
+                location: { lat: 27.7172, lng: 85.3240 }, // Kathmandu
+                phone: '+977-9801234567',
+                
+                // Provider details (available to all users)
+                services: [], // Services they can provide
+                rating: 0,
+                reviews: 0,
+                bio: '',
+                gigs: [],
+                youtubeVideos: [],
+                homepage: '',
+                address: 'Thamel, Kathmandu',
+                completedJobs: 0,
+                responseTime: '',
+                
+                notifications: []
+            },
+            {
+                id: 2,
+                name: 'Jane Smith',
+                email: 'jane@example.com',
+                password: 'user123',
+                activeRole: 'provider',
+                location: { lat: 27.7172, lng: 85.3240 },
+                phone: '+977-9801234567',
+                services: [1, 2], // Actively providing these services
+                rating: 4.5,
+                reviews: 23,
+                bio: 'Professional plumber and electrician with 10+ years experience. Licensed and insured.',
+                gigs: ['Installed 500+ water heaters', 'Fixed electrical issues in 300+ homes', 'Emergency 24/7 service available'],
+                youtubeVideos: ['https://youtube.com/watch?v=demo1'],
+                homepage: 'https://janeplumbing.com',
+                address: 'Thamel, Kathmandu',
+                completedJobs: 150,
+                responseTime: '2 hours',
+                notifications: []
+            },
+            {
+                id: 3,
+                name: 'Mike Johnson',
+                email: 'mike@example.com',
+                password: 'user123',
+                activeRole: 'buyer',
+                location: { lat: 27.7172, lng: 85.3240 },
+                phone: '+977-9801234568',
+                services: [5, 6], // Can also provide services
+                rating: 4.8,
+                reviews: 45,
+                bio: 'Expert car mechanic and carpenter. Quality work guaranteed.',
+                gigs: ['Repaired 1000+ vehicles', 'Custom furniture maker', 'Specialized in vintage car restoration'],
+                youtubeVideos: [],
+                homepage: 'https://mikesgarage.com',
+                address: 'Bhaktapur, Nepal',
+                completedJobs: 300,
+                responseTime: '1 hour',
+                notifications: []
+            },
+            {
+                id: 4,
+                name: 'Sarah Williams',
+                email: 'sarah@example.com',
+                password: 'user123',
+                activeRole: 'provider',
+                location: { lat: 27.7172, lng: 85.3240 },
+                phone: '+977-9801234569',
+                services: [11, 12, 14],
+                rating: 4.9,
+                reviews: 67,
+                bio: 'Full-stack developer and digital marketer. Building digital solutions since 2015.',
+                gigs: ['Created 100+ websites', 'Managed social media for 50+ brands', 'SEO expert with proven results'],
+                youtubeVideos: ['https://youtube.com/watch?v=demo2', 'https://youtube.com/watch?v=demo3'],
+                homepage: 'https://sarahdigital.com',
+                address: 'Remote/Online',
+                completedJobs: 200,
+                responseTime: '30 minutes',
+                notifications: []
+            },
+            {
+                id: 5,
+                name: 'Admin User',
+                email: 'admin@clapserv.com',
+                password: 'admin123',
+                activeRole: 'admin',
+                location: null,
+                phone: null,
+                services: [],
+                notifications: []
+            }
+        ];
+
+        const INITIAL_SERVICE_REQUESTS = [
+            {
+                id: 1,
+                buyerId: 1,
+                categoryId: 1,
+                title: 'Need urgent plumbing repair',
+                description: 'Kitchen sink is leaking badly. Need immediate help! Water is dripping constantly and creating a mess.',
+                images: [],
+                videos: [],
+                location: { lat: 27.7172, lng: 85.3240 },
+                status: 'open',
+                createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+                proposals: [
+                    {
+                        id: 1,
+                        providerId: 2,
+                        bidAmount: 50,
+                        message: 'I can fix this within 2 hours. I have all necessary tools and parts.',
+                        submittedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString()
+                    }
+                ]
+            },
+            {
+                id: 2,
+                buyerId: 6,
+                categoryId: 11,
+                title: 'E-commerce website development needed',
+                description: 'Looking for a developer to build a full e-commerce website with payment integration, product catalog, and admin panel.',
+                images: [],
+                videos: [],
+                location: { lat: 27.7172, lng: 85.3240 },
+                status: 'open',
+                createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+                proposals: [
+                    {
+                        id: 1,
+                        providerId: 4,
+                        bidAmount: 1500,
+                        message: 'I can build a modern, responsive e-commerce site using React and Node.js. Timeline: 4-6 weeks. Includes payment gateway integration.',
+                        submittedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString()
+                    }
+                ]
+            },
+            {
+                id: 3,
+                buyerId: 1,
+                categoryId: 5,
+                title: 'Car brake system repair',
+                description: 'My car brakes are making squeaking noises. Need professional inspection and repair.',
+                images: [],
+                videos: [],
+                location: { lat: 27.7172, lng: 85.3240 },
+                status: 'open',
+                createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
+                proposals: [
+                    {
+                        id: 1,
+                        providerId: 3,
+                        bidAmount: 120,
+                        message: 'I can inspect and repair your brake system. Will replace brake pads if needed. Can do it today.',
+                        submittedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+                    }
+                ]
+            }
+        ];
+
+        // Utility functions
+        const calculateDistance = (lat1, lng1, lat2, lng2) => {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        };
+
+        const StarRating = ({ rating, reviews }) => (
+            <div className="flex items-center gap-2">
+                <div className="star-rating flex">
+                    {[...Array(5)].map((_, i) => (
+                        <span key={i}>{i < Math.floor(rating) ? '★' : '☆'}</span>
+                    ))}
+                </div>
+                <span className="text-sm text-gray-600">({reviews} reviews)</span>
+            </div>
+        );
+
+        // Main App Component
+        const ClapServApp = () => {
+            const [currentUser, setCurrentUser] = useState(null);
+            const [users, setUsers] = useState(INITIAL_USERS);
+            const [serviceCategories, setServiceCategories] = useState(INITIAL_SERVICE_CATEGORIES);
+            const [serviceRequests, setServiceRequests] = useState(INITIAL_SERVICE_REQUESTS);
+            const [currentView, setCurrentView] = useState('login');
+            const [selectedRequest, setSelectedRequest] = useState(null);
+            const [selectedProvider, setSelectedProvider] = useState(null);
+
+            // Login Component
+            const LoginPage = () => {
+                const [email, setEmail] = useState('');
+                const [password, setPassword] = useState('');
+                const [isSignup, setIsSignup] = useState(false);
+                const [signupData, setSignupData] = useState({
+                    name: '', email: '', password: '', role: 'buyer'
+                });
+
+                const handleLogin = (e) => {
+                    e.preventDefault();
+                    const user = users.find(u => u.email === email && u.password === password);
+                    if (user) {
+                        setCurrentUser(user);
+                        setCurrentView('home');
+                    } else {
+                        alert('Invalid credentials');
+                    }
+                };
+
+                const handleSignup = (e) => {
+                    e.preventDefault();
+                    const newUser = {
+                        id: users.length + 1,
+                        name: signupData.name,
+                        email: signupData.email,
+                        password: signupData.password,
+                        activeRole: 'buyer', // Default to buyer mode
+                        location: { lat: 27.7172, lng: 85.3240 },
+                        phone: '',
+                        services: [],
+                        rating: 0,
+                        reviews: 0,
+                        bio: '',
+                        gigs: [],
+                        youtubeVideos: [],
+                        homepage: '',
+                        address: '',
+                        completedJobs: 0,
+                        responseTime: '',
+                        notifications: []
+                    };
+                    setUsers([...users, newUser]);
+                    setCurrentUser(newUser);
+                    setCurrentView('home');
+                };
+
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+                            <div className="flex items-center justify-center gap-3 mb-8">
+                                <div className="logo-container"></div>
+                                <h1 className="text-3xl font-bold text-gray-800">Clap-Serv</h1>
+                            </div>
+                            
+                            {!isSignup ? (
+                                <form onSubmit={handleLogin} className="space-y-4">
+                                    <h2 className="text-2xl font-semibold text-center mb-6">Login</h2>
+                                    <input
+                                        type="email"
+                                        placeholder="Email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                    <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                                        Login
+                                    </button>
+                                    <p className="text-center text-sm text-gray-600 mt-4">
+                                        Don't have an account?{' '}
+                                        <button type="button" onClick={() => setIsSignup(true)} className="text-blue-600 font-semibold">
+                                            Sign Up
+                                        </button>
+                                    </p>
+                                    <div className="mt-6 p-4 bg-gray-100 rounded-lg text-xs">
+                                        <p className="font-semibold mb-2">Demo Accounts:</p>
+                                        <p>User (Buyer mode): john@example.com / user123</p>
+                                        <p>User (Provider mode): jane@example.com / user123</p>
+                                        <p>Admin: admin@clapserv.com / admin123</p>
+                                        <p className="mt-2 text-gray-600 italic">All users can switch between Buyer and Provider roles</p>
+                                    </div>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleSignup} className="space-y-4">
+                                    <h2 className="text-2xl font-semibold text-center mb-6">Sign Up</h2>
+                                    <input
+                                        type="text"
+                                        placeholder="Full Name"
+                                        value={signupData.name}
+                                        onChange={(e) => setSignupData({...signupData, name: e.target.value})}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                    <input
+                                        type="email"
+                                        placeholder="Email"
+                                        value={signupData.email}
+                                        onChange={(e) => setSignupData({...signupData, email: e.target.value})}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Password"
+                                        value={signupData.password}
+                                        onChange={(e) => setSignupData({...signupData, password: e.target.value})}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                    <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                                        Sign Up
+                                    </button>
+                                    <p className="text-center text-xs text-gray-500 mt-2">
+                                        You can use your account as both a buyer and service provider
+                                    </p>
+                                    <p className="text-center text-sm text-gray-600 mt-4">
+                                        Already have an account?{' '}
+                                        <button type="button" onClick={() => setIsSignup(false)} className="text-blue-600 font-semibold">
+                                            Login
+                                        </button>
+                                    </p>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            // Navigation Bar
+            const NavBar = () => {
+                const getNotificationCount = () => {
+                    return currentUser.notifications?.length || 0;
+                };
+
+                const handleRoleSwitch = (newRole) => {
+                    const updatedUser = { ...currentUser, activeRole: newRole };
+                    setCurrentUser(updatedUser);
+                    
+                    // Update in users array
+                    const updatedUsers = users.map(u => 
+                        u.id === currentUser.id ? updatedUser : u
+                    );
+                    setUsers(updatedUsers);
+                    
+                    // Navigate to appropriate home
+                    setCurrentView('home');
+                };
+
+                return (
+                    <nav className="bg-white shadow-md px-4 md:px-6 py-4 sticky top-0 z-40">
+                        <div className="max-w-7xl mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
+                                <div className="logo-container"></div>
+                                <span className="text-xl md:text-2xl font-bold text-gray-800">Clap-Serv</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 md:gap-6">
+                                {/* Role Switcher - Only for non-admin users */}
+                                {currentUser.activeRole !== 'admin' && (
+                                    <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                                        <button
+                                            onClick={() => handleRoleSwitch('buyer')}
+                                            className={`px-3 py-1 rounded-md text-sm font-medium transition ${
+                                                currentUser.activeRole === 'buyer'
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            🛒 Buyer
+                                        </button>
+                                        <button
+                                            onClick={() => handleRoleSwitch('provider')}
+                                            className={`px-3 py-1 rounded-md text-sm font-medium transition ${
+                                                currentUser.activeRole === 'provider'
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            💼 Provider
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                <button onClick={() => setCurrentView('home')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium">
+                                    🏠 Home
+                                </button>
+                                
+                                {currentUser.activeRole === 'buyer' && (
+                                    <>
+                                        <button onClick={() => setCurrentView('browse')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium">
+                                            🔍 Browse
+                                        </button>
+                                        <button onClick={() => setCurrentView('myRequests')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium relative">
+                                            📋 Requests
+                                            <NotificationBadge count={serviceRequests.filter(r => r.buyerId === currentUser.id && r.proposals?.length > 0).length} />
+                                        </button>
+                                    </>
+                                )}
+                                
+                                {currentUser.activeRole === 'provider' && (
+                                    <>
+                                        <button onClick={() => setCurrentView('opportunities')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium relative">
+                                            💼 Opportunities
+                                            <NotificationBadge count={serviceRequests.filter(r => {
+                                                const category = serviceCategories.find(c => c.id === r.categoryId);
+                                                return r.status === 'open' && currentUser.services?.includes(r.categoryId);
+                                            }).length} />
+                                        </button>
+                                        <button onClick={() => setCurrentView('myProposals')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium relative">
+                                            📤 My Proposals
+                                            <NotificationBadge count={serviceRequests.filter(r => 
+                                                r.proposals?.some(p => p.providerId === currentUser.id)
+                                            ).length} />
+                                        </button>
+                                        <button onClick={() => setCurrentView('myProfile')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium">
+                                            👤 Profile
+                                        </button>
+                                    </>
+                                )}
+                                
+                                {currentUser.activeRole === 'admin' && (
+                                    <>
+                                        <button onClick={() => setCurrentView('manageServices')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium">
+                                            ⚙️ Services
+                                        </button>
+                                        <button onClick={() => setCurrentView('viewRequests')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium relative">
+                                            📊 Dashboard
+                                            <NotificationBadge count={serviceRequests.filter(r => r.status === 'open').length} />
+                                        </button>
+                                        <button onClick={() => setCurrentView('analytics')} className="text-sm md:text-base text-gray-700 hover:text-blue-600 font-medium">
+                                            📈 Analytics
+                                        </button>
+                                    </>
+                                )}
+                                
+                                <div className="flex items-center gap-2 border-l pl-3 md:pl-6">
+                                    <div className="hidden md:block">
+                                        <span className="text-xs md:text-sm text-gray-600 font-semibold">{currentUser.name}</span>
+                                        <p className="text-xs text-gray-500 capitalize">{currentUser.activeRole}</p>
+                                    </div>
+                                    <button onClick={() => {setCurrentUser(null); setCurrentView('login');}} className="text-xs md:text-sm text-red-600 hover:text-red-700 font-medium">
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                );
+            };
+
+            // Buyer Home - Create Service Request
+            const BuyerHome = () => {
+                const [formData, setFormData] = useState({
+                    categoryId: '',
+                    title: '',
+                    description: '',
+                    images: [],
+                    videos: []
+                });
+
+                const handleSubmit = (e) => {
+                    e.preventDefault();
+                    const newRequest = {
+                        id: serviceRequests.length + 1,
+                        buyerId: currentUser.id,
+                        ...formData,
+                        categoryId: parseInt(formData.categoryId),
+                        location: currentUser.location,
+                        status: 'open',
+                        createdAt: new Date().toISOString(),
+                        proposals: []
+                    };
+                    setServiceRequests([...serviceRequests, newRequest]);
+                    alert('Service request posted successfully!');
+                    setFormData({ categoryId: '', title: '', description: '', images: [], videos: [] });
+                };
+
+                return (
+                    <div className="max-w-4xl mx-auto p-6">
+                        <h2 className="text-3xl font-bold mb-6">Post a Service Request</h2>
+                        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Select Service Category</label>
+                                <select
+                                    value={formData.categoryId}
+                                    onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="">Choose a service...</option>
+                                    {serviceCategories.map(cat => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.icon} {cat.name} ({cat.distance === 'online' ? 'Online' : `${cat.distance}km range`})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Title</label>
+                                <input
+                                    type="text"
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Brief title for your request"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Description</label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                                    placeholder="Describe what you need in detail..."
+                                    required
+                                />
+                            </div>
+                            <div className="flex gap-4">
+                                <button type="button" className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+                                    📷 Add Images
+                                </button>
+                                <button type="button" className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+                                    🎥 Add Videos
+                                </button>
+                            </div>
+                            <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                                Post Request
+                            </button>
+                        </form>
+                    </div>
+                );
+            };
+
+            // Browse Services - View Providers
+            const BrowseServices = () => {
+                const [selectedCategory, setSelectedCategory] = useState(null);
+                const [searchTerm, setSearchTerm] = useState('');
+                const [sortBy, setSortBy] = useState('rating'); // rating, reviews, name
+                // Filter users who have provider capabilities (services array not empty)
+                const providers = users.filter(u => u.services && u.services.length > 0);
+
+                const getProvidersForCategory = (categoryId) => {
+                    const category = serviceCategories.find(c => c.id === categoryId);
+                    if (!category) return [];
+
+                    let filtered = providers.filter(p => {
+                        if (!p.services || !p.services.includes(categoryId)) return false;
+                        
+                        if (category.distance === 'online') return true;
+                        
+                        const distance = calculateDistance(
+                            currentUser.location.lat, currentUser.location.lng,
+                            p.location.lat, p.location.lng
+                        );
+                        return distance <= category.distance;
+                    });
+
+                    // Apply search filter
+                    if (searchTerm) {
+                        filtered = filtered.filter(p => 
+                            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            p.bio?.toLowerCase().includes(searchTerm.toLowerCase())
+                        );
+                    }
+
+                    // Apply sorting
+                    if (sortBy === 'rating') {
+                        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                    } else if (sortBy === 'reviews') {
+                        filtered.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
+                    } else if (sortBy === 'name') {
+                        filtered.sort((a, b) => a.name.localeCompare(b.name));
+                    }
+
+                    return filtered;
+                };
+
+                return (
+                    <div className="max-w-7xl mx-auto p-4 md:p-6">
+                        <h2 className="text-2xl md:text-3xl font-bold mb-6">Browse Service Providers</h2>
+                        
+                        {/* Search and Filter Bar */}
+                        <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex flex-col md:flex-row gap-4">
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="🔍 Search providers by name or description..."
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="rating">Sort by Rating</option>
+                                <option value="reviews">Sort by Reviews</option>
+                                <option value="name">Sort by Name</option>
+                            </select>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-8">
+                            {serviceCategories.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setSelectedCategory(cat.id)}
+                                    className={`service-card p-3 md:p-4 rounded-lg border-2 ${selectedCategory === cat.id ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white'} hover:shadow-lg transition`}
+                                >
+                                    <div className="text-3xl md:text-4xl mb-2">{cat.icon}</div>
+                                    <div className="font-semibold text-xs md:text-sm">{cat.name}</div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        {cat.distance === 'online' ? 'Online' : `${cat.distance}km`}
+                                    </div>
+                                    <div className="text-xs text-blue-600 mt-1 font-medium">
+                                        {providers.filter(p => p.services?.includes(cat.id)).length} providers
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {selectedCategory && (
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-xl md:text-2xl font-semibold">
+                                        {serviceCategories.find(c => c.id === selectedCategory)?.name} Providers
+                                    </h3>
+                                    <span className="text-sm text-gray-600">
+                                        {getProvidersForCategory(selectedCategory).length} results
+                                    </span>
+                                </div>
+                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                                    {getProvidersForCategory(selectedCategory).length > 0 ? (
+                                        getProvidersForCategory(selectedCategory).map(provider => (
+                                            <div key={provider.id} className="bg-white rounded-lg shadow-md p-4 md:p-6 hover:shadow-xl transition">
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="flex-1">
+                                                        <h4 className="text-lg md:text-xl font-bold">{provider.name}</h4>
+                                                        <StarRating rating={provider.rating} reviews={provider.reviews} />
+                                                    </div>
+                                                </div>
+                                                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{provider.bio}</p>
+                                                <div className="space-y-2 text-sm text-gray-700 mb-4">
+                                                    <p>📍 {provider.address}</p>
+                                                    <p>✅ {provider.completedJobs} completed jobs</p>
+                                                    <p>⏱️ {provider.responseTime} response time</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => {setSelectedProvider(provider); setCurrentView('providerProfile');}}
+                                                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+                                                >
+                                                    View Full Profile
+                                                </button>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="col-span-full text-center py-12">
+                                            <p className="text-gray-500 text-lg">No providers found matching your criteria</p>
+                                            <button
+                                                onClick={() => {setSearchTerm(''); setSelectedCategory(null);}}
+                                                className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                            >
+                                                Clear Filters
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // Provider Profile Page
+            const ProviderProfile = () => {
+                const provider = selectedProvider;
+                if (!provider) return null;
+
+                return (
+                    <div className="max-w-5xl mx-auto p-6">
+                        <button onClick={() => setCurrentView('browse')} className="mb-4 text-blue-600 hover:underline">
+                            ← Back to Browse
+                        </button>
+                        
+                        <div className="bg-white rounded-lg shadow-md p-8">
+                            <div className="flex items-start gap-6 mb-6">
+                                <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
+                                    {provider.name.charAt(0)}
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-3xl font-bold mb-2">{provider.name}</h2>
+                                    <StarRating rating={provider.rating} reviews={provider.reviews} />
+                                    <p className="text-gray-600 mt-2">{provider.bio}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <h3 className="font-semibold text-lg mb-2">Contact Information</h3>
+                                    <p className="text-gray-700">📞 {provider.phone}</p>
+                                    <p className="text-gray-700">📧 {provider.email}</p>
+                                    <p className="text-gray-700">📍 {provider.address}</p>
+                                    {provider.homepage && (
+                                        <p className="text-gray-700">🌐 <a href={provider.homepage} className="text-blue-600 hover:underline">{provider.homepage}</a></p>
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-lg mb-2">Services Offered</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {provider.services && provider.services.map(sId => {
+                                            const service = serviceCategories.find(s => s.id === sId);
+                                            return service ? (
+                                                <span key={sId} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                                                    {service.icon} {service.name}
+                                                </span>
+                                            ) : null;
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mb-6">
+                                <h3 className="font-semibold text-lg mb-2">Portfolio & Gigs</h3>
+                                <ul className="space-y-2">
+                                    {provider.gigs && provider.gigs.map((gig, idx) => (
+                                        <li key={idx} className="flex items-start gap-2">
+                                            <span className="text-green-600">✓</span>
+                                            <span className="text-gray-700">{gig}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            {provider.youtubeVideos && provider.youtubeVideos.length > 0 && (
+                                <div className="mb-6">
+                                    <h3 className="font-semibold text-lg mb-2">Video Portfolio</h3>
+                                    <div className="flex gap-4">
+                                        {provider.youtubeVideos.map((video, idx) => (
+                                            <a key={idx} href={video} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                🎥 Video {idx + 1}
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <button className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                                Send Direct Bid Request
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // My Requests (Buyer)
+            const MyRequests = () => {
+                const myRequests = serviceRequests.filter(r => r.buyerId === currentUser.id);
+
+                return (
+                    <div className="max-w-6xl mx-auto p-6">
+                        <h2 className="text-3xl font-bold mb-6">My Service Requests</h2>
+                        <div className="space-y-4">
+                            {myRequests.map(request => {
+                                const category = serviceCategories.find(c => c.id === request.categoryId);
+                                return (
+                                    <div key={request.id} className="bg-white rounded-lg shadow-md p-6">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h3 className="text-xl font-bold">{request.title}</h3>
+                                                <p className="text-sm text-gray-500">{category?.icon} {category?.name}</p>
+                                                <p className="text-sm text-gray-500">Posted: {new Date(request.createdAt).toLocaleDateString()}</p>
+                                            </div>
+                                            <span className={`px-3 py-1 rounded-full text-sm ${request.status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                {request.status}
+                                            </span>
+                                        </div>
+                                        <p className="text-gray-700 mb-4">{request.description}</p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-600">{request.proposals?.length || 0} proposals received</span>
+                                            <button
+                                                onClick={() => {setSelectedRequest(request); setCurrentView('viewProposals');}}
+                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                            >
+                                                View Proposals
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+
+            // View Proposals with Chat
+            const ViewProposals = () => {
+                const [selectedProposal, setSelectedProposal] = useState(null);
+                const [chatMessage, setChatMessage] = useState('');
+                const [chats, setChats] = useState({});
+
+                if (!selectedRequest) return null;
+
+                const handleSendMessage = (proposalId) => {
+                    if (!chatMessage.trim()) return;
+                    const newChats = {...chats};
+                    if (!newChats[proposalId]) newChats[proposalId] = [];
+                    newChats[proposalId].push({
+                        from: currentUser.id,
+                        message: chatMessage,
+                        timestamp: new Date().toISOString()
+                    });
+                    setChats(newChats);
+                    setChatMessage('');
+                };
+
+                const handleAcceptProposal = (proposalId) => {
+                    const updatedRequests = serviceRequests.map(r => {
+                        if (r.id === selectedRequest.id) {
+                            return {
+                                ...r,
+                                status: 'accepted',
+                                acceptedProposalId: proposalId
+                            };
+                        }
+                        return r;
+                    });
+                    setServiceRequests(updatedRequests);
+                    alert('Proposal accepted! You can now exchange phone numbers.');
+                };
+
+                return (
+                    <div className="max-w-6xl mx-auto p-6">
+                        <button onClick={() => setCurrentView('myRequests')} className="mb-4 text-blue-600 hover:underline">
+                            ← Back to My Requests
+                        </button>
+                        
+                        <h2 className="text-3xl font-bold mb-6">Proposals for: {selectedRequest.title}</h2>
+                        
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                {selectedRequest.proposals && selectedRequest.proposals.length > 0 ? (
+                                    selectedRequest.proposals.map(proposal => {
+                                        const provider = users.find(u => u.id === proposal.providerId);
+                                        return (
+                                            <div
+                                                key={proposal.id}
+                                                className={`bg-white rounded-lg shadow-md p-4 cursor-pointer ${selectedProposal?.id === proposal.id ? 'ring-2 ring-blue-600' : ''}`}
+                                                onClick={() => setSelectedProposal(proposal)}
+                                            >
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <h4 className="font-bold">{provider?.name}</h4>
+                                                    <span className="text-lg font-bold text-green-600">${proposal.bidAmount}</span>
+                                                </div>
+                                                <StarRating rating={provider?.rating || 0} reviews={provider?.reviews || 0} />
+                                                <p className="text-gray-700 mt-2 text-sm">{proposal.message}</p>
+                                                <button
+                                                    onClick={(e) => {e.stopPropagation(); handleAcceptProposal(proposal.id);}}
+                                                    className="mt-3 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 text-sm"
+                                                >
+                                                    Accept Proposal
+                                                </button>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <p className="text-gray-500">No proposals yet</p>
+                                )}
+                            </div>
+
+                            {selectedProposal && (
+                                <div className="bg-white rounded-lg shadow-md p-4">
+                                    <h3 className="font-bold mb-4">Chat with {users.find(u => u.id === selectedProposal.providerId)?.name}</h3>
+                                    <div className="chat-container bg-gray-50 rounded-lg p-4 mb-4">
+                                        {chats[selectedProposal.id]?.map((msg, idx) => (
+                                            <div key={idx} className={`mb-3 ${msg.from === currentUser.id ? 'text-right' : 'text-left'}`}>
+                                                <div className={`inline-block px-4 py-2 rounded-lg ${msg.from === currentUser.id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}>
+                                                    {msg.message}
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    {new Date(msg.timestamp).toLocaleTimeString()}
+                                                </div>
+                                            </div>
+                                        )) || <p className="text-gray-500 text-center">No messages yet. Start chatting!</p>}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={chatMessage}
+                                            onChange={(e) => setChatMessage(e.target.value)}
+                                            placeholder="Type a message..."
+                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(selectedProposal.id)}
+                                        />
+                                        <button
+                                            onClick={() => handleSendMessage(selectedProposal.id)}
+                                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            // Provider Profile Management
+            const MyProfile = () => {
+                const [isEditing, setIsEditing] = useState(false);
+                const [profileData, setProfileData] = useState({
+                    name: currentUser.name,
+                    bio: currentUser.bio || '',
+                    phone: currentUser.phone || '',
+                    address: currentUser.address || '',
+                    homepage: currentUser.homepage || '',
+                    services: currentUser.services || [],
+                    gigs: currentUser.gigs || [],
+                    youtubeVideos: currentUser.youtubeVideos || []
+                });
+                const [newGig, setNewGig] = useState('');
+                const [newVideo, setNewVideo] = useState('');
+
+                const handleSaveProfile = () => {
+                    const updatedUsers = users.map(u => {
+                        if (u.id === currentUser.id) {
+                            return { ...u, ...profileData };
+                        }
+                        return u;
+                    });
+                    setUsers(updatedUsers);
+                    setCurrentUser({ ...currentUser, ...profileData });
+                    setIsEditing(false);
+                    alert('Profile updated successfully!');
+                };
+
+                const handleAddGig = () => {
+                    if (newGig.trim()) {
+                        setProfileData({
+                            ...profileData,
+                            gigs: [...profileData.gigs, newGig]
+                        });
+                        setNewGig('');
+                    }
+                };
+
+                const handleRemoveGig = (index) => {
+                    setProfileData({
+                        ...profileData,
+                        gigs: profileData.gigs.filter((_, i) => i !== index)
+                    });
+                };
+
+                const handleToggleService = (serviceId) => {
+                    if (profileData.services.includes(serviceId)) {
+                        setProfileData({
+                            ...profileData,
+                            services: profileData.services.filter(s => s !== serviceId)
+                        });
+                    } else {
+                        setProfileData({
+                            ...profileData,
+                            services: [...profileData.services, serviceId]
+                        });
+                    }
+                };
+
+                return (
+                    <div className="max-w-6xl mx-auto p-4 md:p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl md:text-3xl font-bold">My Profile</h2>
+                            <button
+                                onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
+                                className="px-4 md:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                            >
+                                {isEditing ? '💾 Save Changes' : '✏️ Edit Profile'}
+                            </button>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-md p-4 md:p-8">
+                            <div className="flex flex-col md:flex-row items-start gap-6 mb-8 pb-6 border-b">
+                                <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-4xl font-bold">
+                                    {currentUser.name.charAt(0)}
+                                </div>
+                                <div className="flex-1">
+                                    {isEditing ? (
+                                        <div className="space-y-3">
+                                            <input
+                                                type="text"
+                                                value={profileData.name}
+                                                onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-2xl font-bold"
+                                            />
+                                            <textarea
+                                                value={profileData.bio}
+                                                onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                rows="3"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <h2 className="text-2xl md:text-3xl font-bold mb-2">{currentUser.name}</h2>
+                                            <StarRating rating={currentUser.rating} reviews={currentUser.reviews} />
+                                            <p className="text-gray-600 mt-2">{currentUser.bio}</p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                <div className="bg-blue-50 rounded-lg p-4 text-center">
+                                    <div className="text-3xl font-bold text-blue-600">{currentUser.completedJobs || 0}</div>
+                                    <div className="text-sm text-gray-600">Completed Jobs</div>
+                                </div>
+                                <div className="bg-green-50 rounded-lg p-4 text-center">
+                                    <div className="text-3xl font-bold text-green-600">{currentUser.rating || 0}</div>
+                                    <div className="text-sm text-gray-600">Rating</div>
+                                </div>
+                                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                                    <div className="text-3xl font-bold text-purple-600">{currentUser.reviews || 0}</div>
+                                    <div className="text-sm text-gray-600">Reviews</div>
+                                </div>
+                                <div className="bg-orange-50 rounded-lg p-4 text-center">
+                                    <div className="text-sm font-bold text-orange-600">{currentUser.responseTime || 'N/A'}</div>
+                                    <div className="text-sm text-gray-600">Response Time</div>
+                                </div>
+                            </div>
+
+                            <div className="mb-8">
+                                <h3 className="text-xl font-bold mb-4">Services I Offer</h3>
+                                {isEditing ? (
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {serviceCategories.map(service => (
+                                            <button
+                                                key={service.id}
+                                                onClick={() => handleToggleService(service.id)}
+                                                className={`p-3 rounded-lg border-2 transition ${
+                                                    profileData.services.includes(service.id)
+                                                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                                        : 'border-gray-200 bg-white hover:border-gray-300'
+                                                }`}
+                                            >
+                                                <div className="text-2xl mb-1">{service.icon}</div>
+                                                <div className="text-sm font-medium">{service.name}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {currentUser.services && currentUser.services.map(sId => {
+                                            const service = serviceCategories.find(s => s.id === sId);
+                                            return service ? (
+                                                <span key={sId} className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                                    {service.icon} {service.name}
+                                                </span>
+                                            ) : null;
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mb-8">
+                                <h3 className="text-xl font-bold mb-4">Portfolio & Achievements</h3>
+                                {isEditing && (
+                                    <div className="flex gap-2 mb-4">
+                                        <input
+                                            type="text"
+                                            value={newGig}
+                                            onChange={(e) => setNewGig(e.target.value)}
+                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                                        />
+                                        <button onClick={handleAddGig} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                            Add
+                                        </button>
+                                    </div>
+                                )}
+                                <ul className="space-y-2">
+                                    {profileData.gigs.map((gig, idx) => (
+                                        <li key={idx} className="flex items-start gap-2">
+                                            <span className="text-green-600">✓</span>
+                                            <span className="text-gray-700 flex-1">{gig}</span>
+                                            {isEditing && (
+                                                <button onClick={() => handleRemoveGig(idx)} className="text-red-600 text-sm">Remove</button>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // My Proposals (Provider) - Track submitted bids
+            const MyProposals = () => {
+                const [selectedProposal, setSelectedProposal] = useState(null);
+                const [chatMessage, setChatMessage] = useState('');
+                const [chats, setChats] = useState({});
+
+                // Get all requests where current user has submitted proposals
+                const myProposals = serviceRequests
+                    .map(request => {
+                        const myProposal = request.proposals?.find(p => p.providerId === currentUser.id);
+                        if (!myProposal) return null;
+                        
+                        return {
+                            ...request,
+                            myProposal,
+                            buyer: users.find(u => u.id === request.buyerId),
+                            category: serviceCategories.find(c => c.id === request.categoryId)
+                        };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => new Date(b.myProposal.submittedAt) - new Date(a.myProposal.submittedAt));
+
+                const handleSendMessage = (proposalId) => {
+                    if (!chatMessage.trim()) return;
+                    const newChats = {...chats};
+                    if (!newChats[proposalId]) newChats[proposalId] = [];
+                    newChats[proposalId].push({
+                        from: currentUser.id,
+                        message: chatMessage,
+                        timestamp: new Date().toISOString()
+                    });
+                    setChats(newChats);
+                    setChatMessage('');
+                };
+
+                const getStatusColor = (status) => {
+                    switch (status) {
+                        case 'open': return 'bg-green-100 text-green-800';
+                        case 'accepted': return 'bg-blue-100 text-blue-800';
+                        case 'rejected': return 'bg-red-100 text-red-800';
+                        default: return 'bg-gray-100 text-gray-800';
+                    }
+                };
+
+                const getStatusText = (request) => {
+                    if (request.status === 'accepted') {
+                        if (request.acceptedProposalId === request.myProposal.id) {
+                            return 'Your proposal was accepted! 🎉';
+                        } else {
+                            return 'Another proposal was accepted';
+                        }
+                    }
+                    return `Open - ${request.proposals?.length || 0} total proposals`;
+                };
+
+                return (
+                    <div className="max-w-7xl mx-auto p-4 md:p-6">
+                        <div className="mb-6">
+                            <h2 className="text-2xl md:text-3xl font-bold mb-2">My Proposals</h2>
+                            <p className="text-gray-600">Track all your submitted bids and communicate with buyers</p>
+                        </div>
+
+                        {myProposals.length === 0 ? (
+                            <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                                <div className="text-6xl mb-4">📤</div>
+                                <h3 className="text-xl font-semibold mb-2">No Proposals Yet</h3>
+                                <p className="text-gray-600 mb-6">You haven't submitted any proposals yet. Browse opportunities to get started!</p>
+                                <button
+                                    onClick={() => setCurrentView('opportunities')}
+                                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                                >
+                                    Browse Opportunities
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid lg:grid-cols-2 gap-6">
+                                {/* Proposals List */}
+                                <div className="space-y-4">
+                                    {myProposals.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className={`bg-white rounded-lg shadow-md p-4 md:p-6 cursor-pointer transition hover:shadow-lg ${
+                                                selectedProposal?.id === item.id ? 'ring-2 ring-blue-600' : ''
+                                            }`}
+                                            onClick={() => setSelectedProposal(item)}
+                                        >
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex-1">
+                                                    <h3 className="text-lg font-bold mb-1">{item.title}</h3>
+                                                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                                                        <span>{item.category?.icon} {item.category?.name}</span>
+                                                        <span>•</span>
+                                                        <span>Posted by {item.buyer?.name}</span>
+                                                    </div>
+                                                </div>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
+                                                    {item.status}
+                                                </span>
+                                            </div>
+
+                                            <p className="text-gray-700 text-sm mb-4 line-clamp-2">{item.description}</p>
+
+                                            {/* Your Proposal Details */}
+                                            <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-sm font-semibold text-blue-900">Your Bid</span>
+                                                    <span className="text-lg font-bold text-blue-600">${item.myProposal.bidAmount}</span>
+                                                </div>
+                                                <p className="text-sm text-gray-700 line-clamp-2">{item.myProposal.message}</p>
+                                            </div>
+
+                                            {/* Status Info */}
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-600">
+                                                    Submitted {new Date(item.myProposal.submittedAt).toLocaleDateString()}
+                                                </span>
+                                                <span className={`font-medium ${
+                                                    item.acceptedProposalId === item.myProposal.id 
+                                                        ? 'text-green-600' 
+                                                        : 'text-gray-600'
+                                                }`}>
+                                                    {getStatusText(item)}
+                                                </span>
+                                            </div>
+
+                                            {/* Accepted Badge */}
+                                            {item.acceptedProposalId === item.myProposal.id && (
+                                                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                                                    <div className="flex items-center gap-2 text-green-800">
+                                                        <span className="text-xl">🎉</span>
+                                                        <div>
+                                                            <p className="font-semibold text-sm">Congratulations! Your proposal was accepted</p>
+                                                            <p className="text-xs">Contact: {item.buyer?.phone || 'Check messages'}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Chat Panel */}
+                                {selectedProposal && (
+                                    <div className="bg-white rounded-lg shadow-md p-4 md:p-6 lg:sticky lg:top-24 h-fit">
+                                        <div className="mb-4 pb-4 border-b">
+                                            <h3 className="font-bold text-lg mb-1">Chat with {selectedProposal.buyer?.name}</h3>
+                                            <p className="text-sm text-gray-600">About: {selectedProposal.title}</p>
+                                        </div>
+
+                                        <div className="chat-container bg-gray-50 rounded-lg p-4 mb-4">
+                                            {chats[selectedProposal.myProposal.id]?.map((msg, idx) => (
+                                                <div key={idx} className={`mb-3 ${msg.from === currentUser.id ? 'text-right' : 'text-left'}`}>
+                                                    <div className={`inline-block px-4 py-2 rounded-lg max-w-[80%] ${
+                                                        msg.from === currentUser.id 
+                                                            ? 'bg-blue-600 text-white' 
+                                                            : 'bg-gray-200 text-gray-800'
+                                                    }`}>
+                                                        {msg.message}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        {new Date(msg.timestamp).toLocaleTimeString()}
+                                                    </div>
+                                                </div>
+                                            )) || (
+                                                <div className="text-center py-8">
+                                                    <p className="text-gray-500 text-sm">No messages yet</p>
+                                                    <p className="text-gray-400 text-xs mt-1">Start the conversation!</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={chatMessage}
+                                                onChange={(e) => setChatMessage(e.target.value)}
+                                                placeholder="Type a message..."
+                                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(selectedProposal.myProposal.id)}
+                                            />
+                                            <button
+                                                onClick={() => handleSendMessage(selectedProposal.myProposal.id)}
+                                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                            >
+                                                Send
+                                            </button>
+                                        </div>
+
+                                        {/* Contact Info (if proposal accepted) */}
+                                        {selectedProposal.acceptedProposalId === selectedProposal.myProposal.id && (
+                                            <div className="mt-4 bg-green-50 rounded-lg p-4">
+                                                <h4 className="font-semibold text-green-900 mb-2">Contact Information</h4>
+                                                <p className="text-sm text-gray-700">📞 {selectedProposal.buyer?.phone}</p>
+                                                <p className="text-sm text-gray-700">📧 {selectedProposal.buyer?.email}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // Provider Opportunities
+            const ProviderOpportunities = () => {
+                const [selectedOpp, setSelectedOpp] = useState(null);
+                const [bidAmount, setBidAmount] = useState('');
+                const [bidMessage, setBidMessage] = useState('');
+
+                const getOpportunitiesForProvider = () => {
+                    return serviceRequests.filter(request => {
+                        if (request.status !== 'open') return false;
+                        if (!currentUser.services || !currentUser.services.includes(request.categoryId)) return false;
+
+                        const category = serviceCategories.find(c => c.id === request.categoryId);
+                        if (!category) return false;
+                        if (category.distance === 'online') return true;
+
+                        const distance = calculateDistance(
+                            currentUser.location.lat, currentUser.location.lng,
+                            request.location.lat, request.location.lng
+                        );
+                        return distance <= category.distance;
+                    });
+                };
+
+                const handleSubmitBid = () => {
+                    if (!selectedOpp || !bidAmount || !bidMessage) {
+                        alert('Please fill in all bid details');
+                        return;
+                    }
+
+                    const updatedRequests = serviceRequests.map(r => {
+                        if (r.id === selectedOpp.id) {
+                            const newProposal = {
+                                id: (r.proposals?.length || 0) + 1,
+                                providerId: currentUser.id,
+                                bidAmount: parseFloat(bidAmount),
+                                message: bidMessage,
+                                submittedAt: new Date().toISOString()
+                            };
+                            return {
+                                ...r,
+                                proposals: [...(r.proposals || []), newProposal]
+                            };
+                        }
+                        return r;
+                    });
+                    setServiceRequests(updatedRequests);
+                    alert('Bid submitted successfully!');
+                    setSelectedOpp(null);
+                    setBidAmount('');
+                    setBidMessage('');
+                };
+
+                const opportunities = getOpportunitiesForProvider();
+
+                return (
+                    <div className="max-w-6xl mx-auto p-6">
+                        <h2 className="text-3xl font-bold mb-6">Available Opportunities</h2>
+                        <div className="space-y-4">
+                            {opportunities.map(request => {
+                                const category = serviceCategories.find(c => c.id === request.categoryId);
+                                const buyer = users.find(u => u.id === request.buyerId);
+                                return (
+                                    <div key={request.id} className="bg-white rounded-lg shadow-md p-6">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h3 className="text-xl font-bold">{request.title}</h3>
+                                                <p className="text-sm text-gray-500">{category?.icon} {category?.name}</p>
+                                                <p className="text-sm text-gray-500">Posted by: {buyer?.name}</p>
+                                                <p className="text-sm text-gray-500">Posted: {new Date(request.createdAt).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                        <p className="text-gray-700 mb-4">{request.description}</p>
+                                        <button
+                                            onClick={() => setSelectedOpp(request)}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                        >
+                                            Submit Bid
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {selectedOpp && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                                    <h3 className="text-2xl font-bold mb-4">Submit Your Bid</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">Bid Amount ($)</label>
+                                            <input
+                                                type="number"
+                                                value={bidAmount}
+                                                onChange={(e) => setBidAmount(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Enter your bid amount"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">Your Proposal</label>
+                                            <textarea
+                                                value={bidMessage}
+                                                onChange={(e) => setBidMessage(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                                                placeholder="Explain why you're the best choice..."
+                                            />
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={handleSubmitBid}
+                                                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                                            >
+                                                Submit Bid
+                                            </button>
+                                            <button
+                                                onClick={() => setSelectedOpp(null)}
+                                                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // Admin - Manage Services
+            const ManageServices = () => {
+                const [newService, setNewService] = useState({ name: '', distance: '2', icon: '🔧' });
+
+                const handleAddService = (e) => {
+                    e.preventDefault();
+                    const service = {
+                        id: serviceCategories.length + 1,
+                        name: newService.name,
+                        distance: newService.distance === 'online' ? 'online' : parseInt(newService.distance),
+                        icon: newService.icon
+                    };
+                    setServiceCategories([...serviceCategories, service]);
+                    setNewService({ name: '', distance: '2', icon: '🔧' });
+                    alert('Service added successfully!');
+                };
+
+                const handleDeleteService = (id) => {
+                    if (confirm('Are you sure you want to delete this service?')) {
+                        setServiceCategories(serviceCategories.filter(s => s.id !== id));
+                    }
+                };
+
+                return (
+                    <div className="max-w-6xl mx-auto p-6">
+                        <h2 className="text-3xl font-bold mb-6">Manage Service Categories</h2>
+                        
+                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                            <h3 className="text-xl font-semibold mb-4">Add New Service</h3>
+                            <form onSubmit={handleAddService} className="space-y-4">
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    <input
+                                        type="text"
+                                        value={newService.name}
+                                        onChange={(e) => setNewService({...newService, name: e.target.value})}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        placeholder="Service Name"
+                                        required
+                                    />
+                                    <select
+                                        value={newService.distance}
+                                        onChange={(e) => setNewService({...newService, distance: e.target.value})}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                    >
+                                        <option value="2">2 KM Range</option>
+                                        <option value="30">30 KM Range</option>
+                                        <option value="online">Online Service</option>
+                                    </select>
+                                    <input
+                                        type="text"
+                                        value={newService.icon}
+                                        onChange={(e) => setNewService({...newService, icon: e.target.value})}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg"
+                                        placeholder="Icon (emoji)"
+                                        maxLength="2"
+                                        required
+                                    />
+                                </div>
+                                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    Add Service
+                                </button>
+                            </form>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h3 className="text-xl font-semibold mb-4">Existing Services</h3>
+                            <div className="space-y-3">
+                                {serviceCategories.map(service => (
+                                    <div key={service.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">{service.icon}</span>
+                                            <div>
+                                                <p className="font-semibold">{service.name}</p>
+                                                <p className="text-sm text-gray-500">
+                                                    {service.distance === 'online' ? 'Online Service' : `${service.distance} KM Range`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteService(service.id)}
+                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // Admin - View All Requests
+            const AdminViewRequests = () => {
+                return (
+                    <div className="max-w-7xl mx-auto p-6">
+                        <h2 className="text-3xl font-bold mb-6">All Service Requests</h2>
+                        <div className="space-y-4">
+                            {serviceRequests.map(request => {
+                                const category = serviceCategories.find(c => c.id === request.categoryId);
+                                const buyer = users.find(u => u.id === request.buyerId);
+                                return (
+                                    <div key={request.id} className="bg-white rounded-lg shadow-md p-6">
+                                        <div className="grid md:grid-cols-2 gap-4">
+                                            <div>
+                                                <h3 className="text-xl font-bold">{request.title}</h3>
+                                                <p className="text-sm text-gray-500">{category?.icon} {category?.name}</p>
+                                                <p className="text-sm text-gray-500">Buyer: {buyer?.name} ({buyer?.email})</p>
+                                                <p className="text-sm text-gray-500">Posted: {new Date(request.createdAt).toLocaleDateString()}</p>
+                                                <p className="text-gray-700 mt-2">{request.description}</p>
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold mb-2">Status: <span className={`px-2 py-1 rounded ${request.status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{request.status}</span></p>
+                                                <p className="text-sm text-gray-600">Proposals: {request.proposals?.length || 0}</p>
+                                                {request.proposals && request.proposals.length > 0 && (
+                                                    <div className="mt-3">
+                                                        <p className="text-sm font-semibold mb-1">Bidders:</p>
+                                                        {request.proposals.map(prop => {
+                                                            const provider = users.find(u => u.id === prop.providerId);
+                                                            return (
+                                                                <p key={prop.id} className="text-sm text-gray-600">
+                                                                    • {provider?.name} - ${prop.bidAmount}
+                                                                </p>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+
+            // Admin Analytics Dashboard
+            const AdminAnalytics = () => {
+                const totalRequests = serviceRequests.length;
+                const openRequests = serviceRequests.filter(r => r.status === 'open').length;
+                const closedRequests = serviceRequests.filter(r => r.status === 'accepted').length;
+                const totalProposals = serviceRequests.reduce((acc, r) => acc + (r.proposals?.length || 0), 0);
+                const totalProviders = users.filter(u => u.services && u.services.length > 0).length;
+                const totalBuyers = users.filter(u => u.activeRole !== 'admin').length;
+                
+                const categoryStats = serviceCategories.map(cat => ({
+                    name: cat.name,
+                    icon: cat.icon,
+                    requests: serviceRequests.filter(r => r.categoryId === cat.id).length,
+                    providers: users.filter(u => u.services?.includes(cat.id)).length
+                })).sort((a, b) => b.requests - a.requests);
+
+                const topProviders = users
+                    .filter(u => u.services && u.services.length > 0)
+                    .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+                    .slice(0, 5);
+
+                return (
+                    <div className="max-w-7xl mx-auto p-4 md:p-6">
+                        <h2 className="text-3xl font-bold mb-6">Platform Analytics</h2>
+                        
+                        {/* Overview Statistics */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                                <div className="text-4xl font-bold text-blue-600">{totalRequests}</div>
+                                <div className="text-sm text-gray-600 mt-2">Total Requests</div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                                <div className="text-4xl font-bold text-green-600">{openRequests}</div>
+                                <div className="text-sm text-gray-600 mt-2">Open Requests</div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                                <div className="text-4xl font-bold text-purple-600">{closedRequests}</div>
+                                <div className="text-sm text-gray-600 mt-2">Completed</div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                                <div className="text-4xl font-bold text-orange-600">{totalProposals}</div>
+                                <div className="text-sm text-gray-600 mt-2">Total Proposals</div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                                <div className="text-4xl font-bold text-indigo-600">{totalProviders}</div>
+                                <div className="text-sm text-gray-600 mt-2">Service Providers</div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                                <div className="text-4xl font-bold text-pink-600">{totalBuyers}</div>
+                                <div className="text-sm text-gray-600 mt-2">Service Buyers</div>
+                            </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-6 mb-8">
+                            {/* Category Statistics */}
+                            <div className="bg-white rounded-lg shadow-md p-6">
+                                <h3 className="text-xl font-bold mb-4">Service Category Performance</h3>
+                                <div className="space-y-3">
+                                    {categoryStats.slice(0, 10).map((cat, idx) => (
+                                        <div key={idx} className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-2xl">{cat.icon}</span>
+                                                <span className="font-medium">{cat.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-sm">
+                                                <span className="text-blue-600">{cat.requests} requests</span>
+                                                <span className="text-green-600">{cat.providers} providers</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Top Rated Providers */}
+                            <div className="bg-white rounded-lg shadow-md p-6">
+                                <h3 className="text-xl font-bold mb-4">Top Rated Service Providers</h3>
+                                <div className="space-y-3">
+                                    {topProviders.map((provider, idx) => (
+                                        <div key={provider.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                                                    {idx + 1}
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold">{provider.name}</p>
+                                                    <StarRating rating={provider.rating} reviews={provider.reviews} />
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm text-gray-600">{provider.completedJobs} jobs</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Platform Health Indicators */}
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h3 className="text-xl font-bold mb-4">Platform Health Metrics</h3>
+                            <div className="grid md:grid-cols-3 gap-6">
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-2">Average Proposals per Request</p>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 bg-gray-200 rounded-full h-3">
+                                            <div className="bg-blue-600 h-3 rounded-full" style={{width: `${Math.min((totalProposals / totalRequests) * 20, 100)}%`}}></div>
+                                        </div>
+                                        <span className="font-bold">{(totalProposals / totalRequests).toFixed(1)}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-2">Provider Utilization Rate</p>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 bg-gray-200 rounded-full h-3">
+                                            <div className="bg-green-600 h-3 rounded-full" style={{width: '75%'}}></div>
+                                        </div>
+                                        <span className="font-bold">75%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-2">Request Completion Rate</p>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 bg-gray-200 rounded-full h-3">
+                                            <div className="bg-purple-600 h-3 rounded-full" style={{width: `${(closedRequests / totalRequests) * 100}%`}}></div>
+                                        </div>
+                                        <span className="font-bold">{((closedRequests / totalRequests) * 100).toFixed(0)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // Render based on current view
+            if (!currentUser) {
+                return <LoginPage />;
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-100">
+                    <NavBar />
+                    {currentView === 'home' && currentUser.activeRole === 'buyer' && <BuyerHome />}
+                    {currentView === 'home' && currentUser.activeRole === 'provider' && <MyProfile />}
+                    {currentView === 'home' && currentUser.activeRole === 'admin' && <AdminAnalytics />}
+                    {currentView === 'browse' && <BrowseServices />}
+                    {currentView === 'providerProfile' && <ProviderProfile />}
+                    {currentView === 'myRequests' && <MyRequests />}
+                    {currentView === 'viewProposals' && <ViewProposals />}
+                    {currentView === 'myProfile' && <MyProfile />}
+                    {currentView === 'opportunities' && <ProviderOpportunities />}
+                    {currentView === 'myProposals' && <MyProposals />}
+                    {currentView === 'manageServices' && <ManageServices />}
+                    {currentView === 'viewRequests' && <AdminViewRequests />}
+                    {currentView === 'analytics' && <AdminAnalytics />}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<ClapServApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
